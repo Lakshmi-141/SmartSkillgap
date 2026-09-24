@@ -1,0 +1,39 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "seed": "node src/seed/seedData.js",
+    "test:db": "node src/seed/verifyDatabase.js",
+    "test:auth": "node src/seed/testAuthPhase3.js",
+    "test:phase4": "node src/seed/testPhase4.js",
+    "test:phase5": "node src/seed/testPhase5.js",
+    "test:phase6": "node src/seed/testPhase6.js",
+    "test:phase7": "node src/seed/testPhase7.js",
+    "test:phase8": "node src/seed/testPhase8.js",
+    "test:phase9": "node src/seed/testPhase9.js",
+    "test:phase10": "node src/seed/testPhase10.js",
+    "test:phase11": "node src/seed/testPhase11.js",
+    "test": "node src/seed/verifyDatabase.js && node src/seed/testAuthPhase3.js && node src/seed/testPhase4.js && node src/seed/testPhase5.js && node src/seed/testPhase6.js && node src/seed/testPhase7.js && node src/seed/testPhase8.js && node src/seed/testPhase9.js && node src/seed/testPhase10.js && node src/seed/testPhase11.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "express-validator": "^7.3.2",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongo-sanitize": "^1.1.0",
+    "mongodb-memory-server": "^11.3.0",
+    "mongoose": "^9.10.2"
+  }
+}
