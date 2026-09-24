@@ -1,4 +1,4 @@
-# SmartSkill - AI-Powered Career Skill Gap & Readiness Platform 🚀
+# SmartSkill - Smart Skill Gap & Readiness Platform 🚀
 
 [![Node.js](https://img.shields.io/badge/Node.js-v18+-green.svg)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express-5.x-blue.svg)](https://expressjs.com/)
