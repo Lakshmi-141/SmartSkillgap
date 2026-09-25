@@ -76,6 +76,14 @@ if (fs.existsSync(clientDistPath)) {
     }
     res.sendFile(path.join(clientDistPath, 'index.html'));
   });
+} else {
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: 'Smart Skill Gap API Server is running successfully.',
+      healthCheck: '/api/health'
+    });
+  });
 }
 
 // 404 Handler
