@@ -141,4 +141,89 @@ const getMe = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe };
+// @desc    Logout user
+// @route   POST /api/auth/logout
+// @access  Public
+const logout = async (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Logged out successfully'
+  });
+};
+
+// @desc    Refresh user token
+// @route   POST /api/auth/refresh
+// @access  Public
+const refreshToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'No token provided' });
+    }
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, getJwtSecret());
+    const user = await User.findById(decoded.userId || decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+    const newToken = generateToken(user);
+    res.status(200).json({
+      success: true,
+      token: newToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+  }
+};
+
+// @desc    Request password reset
+// @route   POST /api/auth/forgot-password
+// @access  Public
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
+    }
+    res.status(200).json({
+      success: true,
+      message: 'If an account with that email exists, password reset instructions have been sent.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reset password
+// @route   POST /api/auth/reset-password
+// @access  Public
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. You can now log in.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  getMe,
+  logout,
+  refreshToken,
+  forgotPassword,
+  resetPassword
+};

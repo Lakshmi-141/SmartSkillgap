@@ -62,13 +62,8 @@ const runPhase3Tests = async () => {
   console.log('🧪 Starting PHASE 3 Auth & Security Test Suite...\n');
 
   await connectDB();
-
-  // Wait for initial seed data to complete
-  let attempts = 0;
-  while ((await User.countDocuments()) === 0 && attempts < 50) {
-    await new Promise(r => setTimeout(r, 200));
-    attempts++;
-  }
+  const seedData = require('./seedData');
+  await seedData();
 
   // Start temporary HTTP server on random port
   await new Promise((resolve) => {

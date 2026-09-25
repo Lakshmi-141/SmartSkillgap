@@ -30,27 +30,31 @@ const progressRoutes = require('./routes/progressRoutes');
 
 const app = express();
 
-// Connect Database
-connectDB();
+// Trust reverse proxy (Vercel, Cloudflare, etc.)
+app.set('trust proxy', 1);
 
 // Security Middleware
 app.use(helmet());
 
-const defaultOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
-const clientOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(',').map(url => url.trim())
-  : defaultOrigins;
-
-const allowedOrigins = Array.from(new Set([
-  ...clientOrigins,
-  ...(process.env.NODE_ENV !== 'production' ? defaultOrigins : [])
-]));
-
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    
+    const defaultOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5000'];
+    if (defaultOrigins.includes(origin)) return callback(null, true);
+    
+    if (process.env.CLIENT_URL) {
+      const allowed = process.env.CLIENT_URL.split(',').map(u => u.trim());
+      if (allowed.includes(origin) || allowed.includes('*')) return callback(null, true);
+    }
+    
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    
+    return callback(null, true);
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
 // Body Parser & Limit
@@ -67,14 +71,17 @@ app.use((req, res, next) => {
 
 // Database Readiness Middleware
 app.use(async (req, res, next) => {
+  if (req.path === '/api/health' || req.path === '/health') {
+    return next();
+  }
   try {
     await connectDB();
     next();
   } catch (err) {
-    console.error('Database connection error:', err);
+    console.error('Database connection error:', err.message);
     res.status(500).json({
       success: false,
-      message: 'Database connection failed. Please check MONGODB_URI or network configuration.'
+      message: 'Database connection failed. Please ensure MONGODB_URI environment variable is configured in Vercel project settings.'
     });
   }
 });
@@ -83,7 +90,7 @@ app.use(async (req, res, next) => {
 app.use('/api', apiLimiter);
 
 // Health Check Route
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.status(200).json({
     status: 'OK',
     app: 'SMARTSKILL API',
@@ -92,25 +99,58 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes Mounting
+// API Routes Mounting (with both /api prefix and direct fallback)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/users', userRoutes);
+app.use('/users', userRoutes);
+
 app.use('/api/user-skills', userSkillRoutes);
+app.use('/user-skills', userSkillRoutes);
+
 app.use('/api/profile', profileRoutes);
+app.use('/profile', profileRoutes);
+
 app.use('/api/skills', skillRoutes);
+app.use('/skills', skillRoutes);
+
 app.use('/api/careers', careerRoutes);
+app.use('/careers', careerRoutes);
+
 app.use('/api/career-skills', careerSkillRoutes);
+app.use('/career-skills', careerSkillRoutes);
+
 app.use('/api/assessments', assessmentRoutes);
+app.use('/assessments', assessmentRoutes);
+
 app.use('/api/gap-analysis', gapRoutes);
+app.use('/gap-analysis', gapRoutes);
 app.use('/api/skill-gap', gapRoutes);
+app.use('/skill-gap', gapRoutes);
+
 app.use('/api/roadmap', roadmapRoutes);
+app.use('/roadmap', roadmapRoutes);
 app.use('/api/roadmaps', roadmapRoutes);
+app.use('/roadmaps', roadmapRoutes);
+
 app.use('/api/resources', resourceRoutes);
+app.use('/resources', resourceRoutes);
+
 app.use('/api/projects', projectRoutes);
+app.use('/projects', projectRoutes);
+
 app.use('/api/readiness', readinessRoutes);
+app.use('/readiness', readinessRoutes);
+
 app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
+
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/recommendations', recommendationRoutes);
+
 app.use('/api/progress', progressRoutes);
+app.use('/progress', progressRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
