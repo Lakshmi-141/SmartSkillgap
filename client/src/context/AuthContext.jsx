@@ -35,15 +35,16 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     try {
       const res = await axiosInstance.post('/auth/login', { email, password });
-      if (res.data.success) {
+      if (res.data?.success) {
         setToken(res.data.token);
         setUser(res.data.user);
         localStorage.setItem('smartskill_token', res.data.token);
         localStorage.setItem('smartskill_user', JSON.stringify(res.data.user));
         return { success: true, user: res.data.user };
       }
+      return { success: false, message: res.data?.message || 'Login failed.' };
     } catch (err) {
-      const msg = err.response?.data?.message || 'Invalid email or password.';
+      const msg = err.response?.data?.message || (err.response?.status === 404 ? 'Backend API unreachable. Please check VITE_API_URL configuration in Vercel.' : (err.message || 'Invalid email or password.'));
       setError(msg);
       return { success: false, message: msg };
     }
@@ -53,15 +54,16 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     try {
       const res = await axiosInstance.post('/auth/register', { name, email, password });
-      if (res.data.success) {
+      if (res.data?.success) {
         setToken(res.data.token);
         setUser(res.data.user);
         localStorage.setItem('smartskill_token', res.data.token);
         localStorage.setItem('smartskill_user', JSON.stringify(res.data.user));
         return { success: true, user: res.data.user };
       }
+      return { success: false, message: res.data?.message || 'Registration failed.' };
     } catch (err) {
-      const msg = err.response?.data?.message || 'Registration failed. Please try again.';
+      const msg = err.response?.data?.message || (err.response?.status === 404 ? 'Backend API unreachable. Please check VITE_API_URL configuration in Vercel.' : (err.message || 'Registration failed. Please try again.'));
       setError(msg);
       return { success: false, message: msg };
     }
