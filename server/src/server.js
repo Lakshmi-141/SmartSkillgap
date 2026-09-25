@@ -36,9 +36,18 @@ connectDB();
 // Security Middleware
 app.use(helmet());
 
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const defaultOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
+const clientOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map(url => url.trim())
+  : defaultOrigins;
+
+const allowedOrigins = Array.from(new Set([
+  ...clientOrigins,
+  ...(process.env.NODE_ENV !== 'production' ? defaultOrigins : [])
+]));
+
 app.use(cors({
-  origin: clientUrl,
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
