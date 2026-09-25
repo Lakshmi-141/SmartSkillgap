@@ -52,4 +52,11 @@ const roadmapSchema = new mongoose.Schema(
   }
 );
 
+roadmapSchema.virtual('progress').get(function () {
+  return this.overallProgress;
+});
+
+roadmapSchema.set('toJSON', { virtuals: true });
+roadmapSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.model('Roadmap', roadmapSchema);

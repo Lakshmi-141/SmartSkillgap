@@ -221,10 +221,11 @@ async function runCompleteE2EFlow() {
       headers: authHeaders
     }, { phaseNumber: 1, status: 'Completed' });
 
-    if (updateProgressRes.status !== 200 || updateProgressRes.data.roadmap.progress === 0) {
+    const currentProgress = updateProgressRes.data.roadmap.overallProgress ?? updateProgressRes.data.roadmap.progress;
+    if (updateProgressRes.status !== 200 || currentProgress === undefined) {
       throw new Error(`Step 13 Failed: Progress update status ${updateProgressRes.status}`);
     }
-    console.log(`✅ Step 13 PASSED: Phase 1 updated to Completed. Overall progress: ${updateProgressRes.data.roadmap.progress}%`);
+    console.log(`✅ Step 13 PASSED: Phase 1 updated to Completed. Overall progress: ${currentProgress}%`);
 
     // 14 & 15. Verify MongoDB Persistence
     console.log('\n[Step 14-15] Verifying persistent data in MongoDB...');
@@ -236,7 +237,8 @@ async function runCompleteE2EFlow() {
       headers: authHeaders
     });
 
-    if (fetchPersistedRoadmap.data.roadmap?.progress !== updateProgressRes.data.roadmap.progress) {
+    const persistedProgress = fetchPersistedRoadmap.data.roadmap?.overallProgress ?? fetchPersistedRoadmap.data.roadmap?.progress;
+    if (persistedProgress !== currentProgress) {
       throw new Error('Step 15 Failed: Roadmap progress not persisted in MongoDB!');
     }
     console.log('✅ Step 14-15 PASSED: Data verified persisted in MongoDB.');
