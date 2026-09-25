@@ -1,0 +1,16 @@
+{
+  "name": "smart-skillgap-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Skill Gap & Career Roadmap Platform",
+  "scripts": {
+    "build": "cd server && npm install && cd ../client && npm install && npm run build",
+    "start": "cd server && node src/server.js",
+    "server": "cd server && npm start",
+    "client": "cd client && npm run dev",
+    "dev": "cd server && npm run dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
