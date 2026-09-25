@@ -65,6 +65,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Database Readiness Middleware
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database connection error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Database connection failed. Please check MONGODB_URI or network configuration.'
+    });
+  }
+});
+
 // General API Rate Limiter
 app.use('/api', apiLimiter);
 
