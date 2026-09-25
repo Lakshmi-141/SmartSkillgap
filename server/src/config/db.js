@@ -1,61 +1,50 @@
 const mongoose = require('mongoose');
 
-let connectPromise = null;
-
 const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) {
-    return mongoose.connection;
-  }
-  if (connectPromise) {
-    return connectPromise;
-  }
+  const uri = process.env.MONGODB_URI;
 
-  connectPromise = (async () => {
+  // Connection event listeners
+  mongoose.connection.on('disconnected', () => {
+    console.warn('[MongoDB Engine] Connection disconnected.');
+  });
+
+  mongoose.connection.on('reconnected', () => {
+    console.log('[MongoDB Engine] Connection reestablished.');
+  });
+
+  // 1. If Atlas URI or non-localhost URI is provided in environment, attempt direct connection
+  if (uri && !uri.includes('127.0.0.1') && !uri.includes('localhost')) {
     try {
-      let uri = process.env.MONGODB_URI;
-      const isPlaceholder = !uri || uri.includes('<db_password>') || uri.includes('YOUR_MONGODB_URI');
-      const isVercel = !!(process.env.VERCEL || process.env.VERCEL_ENV);
-      const isProd = process.env.NODE_ENV === 'production';
-
-      if (isPlaceholder) {
-        if (isVercel || isProd) {
-          throw new Error('MONGODB_URI environment variable is missing or contains placeholder (<db_password>) in production.');
-        }
-        console.log('⚠️ MONGODB_URI placeholder detected in local development. Initializing MongoMemoryServer fallback...');
-        const { MongoMemoryServer } = require('mongodb-memory-server');
-        const mongod = await MongoMemoryServer.create();
-        uri = mongod.getUri();
-        console.log('✅ In-Memory MongoDB running at:', uri);
-      }
-
-      const conn = await mongoose.connect(uri, {
-        serverSelectionTimeoutMS: 5000
-      });
-      console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-      return conn;
+      const conn = await mongoose.connect(uri);
+      console.log(`[MongoDB Engine] Connected successfully to host: ${conn.connection.host}`);
+      return;
     } catch (error) {
-      console.error(`❌ MongoDB connection error: ${error.message}`);
-      connectPromise = null;
-
-      if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
-        try {
-          console.log('🔄 Primary MongoDB connection failed in local dev. Initializing MongoMemoryServer fallback...');
-          const { MongoMemoryServer } = require('mongodb-memory-server');
-          const mongod = await MongoMemoryServer.create();
-          const fallbackUri = mongod.getUri();
-          const conn = await mongoose.connect(fallbackUri);
-          console.log(`✅ Fallback In-Memory MongoDB Connected: ${conn.connection.host}`);
-          return conn;
-        } catch (fallbackErr) {
-          console.error(`❌ Fallback MongoDB connection error: ${fallbackErr.message}`);
-          throw error;
-        }
-      }
-      throw error;
+      const sanitizedMsg = error.message.replace(/mongodb\+srv:\/\/[^@]+@/, 'mongodb+srv://*****:*****@');
+      console.error(`[MongoDB Engine] Connection error: ${sanitizedMsg}`);
     }
-  })();
+  }
 
-  return connectPromise;
+
+  // 2. Try connecting to local MongoDB daemon
+  try {
+    const connStr = uri || 'mongodb://127.0.0.1:27017/smart_skillgap';
+    const conn = await mongoose.connect(connStr, { serverSelectionTimeoutMS: 2000 });
+    console.log(`[MongoDB Local] Connected successfully: ${conn.connection.host}`);
+    return;
+  } catch (error) {
+    console.log(`[MongoDB Local] Connection unavailable, spinning up MongoDB In-Memory Server...`);
+  }
+
+  // 3. Fallback to MongoMemoryServer for instant zero-config dev execution
+  try {
+    const { MongoMemoryServer } = require('mongodb-memory-server');
+    const mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    const conn = await mongoose.connect(mongoUri);
+    console.log(`[MongoDB Memory Engine] Connected successfully: ${conn.connection.host}`);
+  } catch (memError) {
+    console.error(`[MongoDB Engine] Initialization error: ${memError.message}`);
+  }
 };
 
 module.exports = connectDB;

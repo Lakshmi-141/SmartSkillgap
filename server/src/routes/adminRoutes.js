@@ -1,101 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getAdminStats,
-  getUsers,
-  getUserById,
-  updateUser,
-  deleteUser,
-  getSkills,
-  getSkillById,
-  createSkill,
-  updateSkill,
-  deleteSkill,
-  getCareers,
-  getCareerById,
-  createCareer,
-  updateCareer,
-  deleteCareer,
-  getCareerSkills,
-  createCareerSkill,
-  updateCareerSkill,
-  deleteCareerSkill,
-  getRoadmaps,
-  deleteRoadmap
+  getAllUsers,
+  getPlatformStatistics,
+  getCatalogSkills,
+  createCatalogSkill,
+  updateCatalogSkill,
+  deleteCatalogSkill
 } = require('../controllers/adminController');
+const { protect, admin } = require('../middleware/authMiddleware');
 
-const {
-  createResource,
-  updateResource,
-  deleteResource
-} = require('../controllers/resourceController');
-
-const {
-  createProject,
-  updateProject,
-  deleteProject
-} = require('../controllers/projectController');
-
-const {
-  getAssessments,
-  getAssessmentById,
-  createAssessment,
-  deleteAssessment
-} = require('../controllers/assessmentController');
-
-const { protect, adminOnly } = require('../middleware/auth');
-
-// MANDATORY ADMIN MIDDLEWARE PIPELINE
+// All routes here are protected and require ADMIN role
 router.use(protect);
-router.use(adminOnly);
+router.use(admin);
 
-// Stats
-router.get('/stats', getAdminStats);
+router.get('/users', getAllUsers);
+router.get('/statistics', getPlatformStatistics);
 
-// User Management
-router.get('/users', getUsers);
-router.get('/users/:id', getUserById);
-router.put('/users/:id', updateUser);
-router.delete('/users/:id', deleteUser);
-
-// Skill Management (CRUD)
-router.get('/skills', getSkills);
-router.get('/skills/:id', getSkillById);
-router.post('/skills', createSkill);
-router.put('/skills/:id', updateSkill);
-router.delete('/skills/:id', deleteSkill);
-
-// Career Management (CRUD)
-router.get('/careers', getCareers);
-router.get('/careers/:id', getCareerById);
-router.post('/careers', createCareer);
-router.put('/careers/:id', updateCareer);
-router.delete('/careers/:id', deleteCareer);
-
-// Career Skill Management (CRUD)
-router.get('/career-skills', getCareerSkills);
-router.post('/career-skills', createCareerSkill);
-router.put('/career-skills/:id', updateCareerSkill);
-router.delete('/career-skills/:id', deleteCareerSkill);
-
-// Roadmap Management
-router.get('/roadmaps', getRoadmaps);
-router.delete('/roadmaps/:id', deleteRoadmap);
-
-// Resource Management (CRUD Aliases under /admin)
-router.post('/resources', createResource);
-router.put('/resources/:id', updateResource);
-router.delete('/resources/:id', deleteResource);
-
-// Assessment Management (CRUD Aliases under /admin)
-router.get('/assessments', getAssessments);
-router.get('/assessments/:id', getAssessmentById);
-router.post('/assessments', createAssessment);
-router.delete('/assessments/:id', deleteAssessment);
-
-// Project Management (CRUD Aliases under /admin)
-router.post('/projects', createProject);
-router.put('/projects/:id', updateProject);
-router.delete('/projects/:id', deleteProject);
+// Skill Catalog Admin Endpoints
+router.get('/skills', getCatalogSkills);
+router.post('/skills', createCatalogSkill);
+router.put('/skills/:id', updateCatalogSkill);
+router.delete('/skills/:id', deleteCatalogSkill);
 
 module.exports = router;

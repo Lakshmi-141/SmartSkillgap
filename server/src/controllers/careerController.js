@@ -1,405 +1,345 @@
-const mongoose = require('mongoose');
 const Career = require('../models/Career');
-const CareerSkill = require('../models/CareerSkill');
-const Skill = require('../models/Skill');
 const User = require('../models/User');
+const seedCareersData = require('../utils/seedCareersData');
 
-// Helper to format/populate career with its required skills
-const formatCareerWithSkills = async (careerDoc) => {
-  const careerObj = careerDoc.toObject ? careerDoc.toObject() : careerDoc;
-  const careerSkills = await CareerSkill.find({ career: careerObj._id }).populate('skill');
-  careerObj.requiredSkills = careerSkills.map(cs => ({
-    _id: cs._id,
-    skill: cs.skill,
-    requiredLevel: cs.requiredLevel,
-    priority: cs.priority
-  }));
-  return careerObj;
+// Ensure all 11 initial careers exist in database
+const seedCareersIfEmpty = async () => {
+  const count = await Career.countDocuments();
+  if (count < seedCareersData.length) {
+    for (const seed of seedCareersData) {
+      const exists = await Career.findOne({ title: seed.title });
+      if (!exists) {
+        await Career.create(seed);
+      }
+    }
+    console.log('[Careers Engine] Guaranteed 11 initial careers seeded to MongoDB.');
+  }
 };
 
-// @desc    Get all available careers
+// @desc    Get all careers with optional search filter
 // @route   GET /api/careers
-// @access  Public
-const getAllCareers = async (req, res, next) => {
+// @access  Public / Private
+const getCareers = async (req, res, next) => {
   try {
-    const careers = await Career.find().sort({ category: 1, title: 1 });
-    
-    // Attach populated career skills to each career
-    const formattedCareers = await Promise.all(
-      careers.map(c => formatCareerWithSkills(c))
-    );
+    await seedCareersIfEmpty();
 
-    res.status(200).json({
+    const { search } = req.query;
+    let query = {};
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query = {
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex },
+          { 'requiredSkills.name': searchRegex },
+          { recommendedSkills: searchRegex }
+        ]
+      };
+    }
+
+    const careers = await Career.find(query).sort({ title: 1 });
+
+    return res.status(200).json({
       success: true,
-      count: formattedCareers.length,
-      careers: formattedCareers
+      count: careers.length,
+      careers
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get single career details by ID
+// @desc    Get single career by ID
 // @route   GET /api/careers/:id
-// @access  Public
+// @access  Public / Private
 const getCareerById = async (req, res, next) => {
   try {
+    await seedCareersIfEmpty();
+
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid Career ID format' });
+    let career;
+
+    // Check if valid ObjectId or title match
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      career = await Career.findById(id);
+    } else {
+      career = await Career.findOne({ title: new RegExp(`^${id}$`, 'i') });
     }
 
-    const career = await Career.findById(id);
     if (!career) {
-      return res.status(404).json({ success: false, message: 'Career path not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Career path not found'
+      });
     }
 
-    const formattedCareer = await formatCareerWithSkills(career);
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      career: formattedCareer
+      career
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Create a new career (Admin only)
+// @desc    Select a target career for authenticated user
+// @route   POST /api/careers/:id/select
+// @access  Private
+const selectTargetCareer = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    let career;
+
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      career = await Career.findById(id);
+    } else {
+      career = await Career.findOne({ title: new RegExp(`^${id}$`, 'i') });
+    }
+
+    if (!career) {
+      return res.status(404).json({
+        success: false,
+        message: 'Selected career path not found'
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User profile not found'
+      });
+    }
+
+    user.targetCareer = career.title;
+    user.targetRole = career.title; // keep backward compatibility
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Target career updated to "${career.title}"`,
+      user: user.toSafeObject(),
+      selectedCareer: career
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Proficiency numeric weight mapping
+const PROFICIENCY_WEIGHTS = {
+  'beginner': 1,
+  'intermediate': 2,
+  'advanced': 3,
+  'expert': 4
+};
+
+// @desc    Compare user skills against multiple careers
+// @route   POST /api/careers/compare
+// @access  Private
+const compareCareers = async (req, res, next) => {
+  try {
+    await seedCareersIfEmpty();
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User profile not found'
+      });
+    }
+
+    let { careerIds, careerTitles } = req.body || {};
+    let query = {};
+
+    if (Array.isArray(careerIds) && careerIds.length > 0) {
+      query = { _id: { $in: careerIds } };
+    } else if (Array.isArray(careerTitles) && careerTitles.length > 0) {
+      query = { title: { $in: careerTitles.map(t => new RegExp(`^${t.trim()}$`, 'i')) } };
+    } else {
+      // Default: compare default careers if no IDs or titles provided
+      const defaultTitles = ['Full Stack Developer', 'Data Analyst', 'Cloud Engineer'];
+      query = { title: { $in: defaultTitles.map(t => new RegExp(`^${t}$`, 'i')) } };
+    }
+
+    let careers = await Career.find(query);
+
+    // If query returned fewer than 2 careers, fallback to initial careers list
+    if (careers.length === 0) {
+      careers = await Career.find().limit(3);
+    }
+
+    const userSkillsMap = new Map();
+    (user.skills || []).forEach(sk => {
+      if (sk && sk.name) {
+        userSkillsMap.set(sk.name.trim().toLowerCase(), {
+          name: sk.name.trim(),
+          proficiency: sk.proficiency || 'Beginner',
+          weight: PROFICIENCY_WEIGHTS[(sk.proficiency || 'Beginner').toLowerCase()] || 1
+        });
+      }
+    });
+
+    const comparisonResults = careers.map(career => {
+      const matchingSkills = [];
+      const skillsToImprove = [];
+      const missingSkills = [];
+
+      (career.requiredSkills || []).forEach(reqSk => {
+        const reqSkillName = typeof reqSk === 'object' ? reqSk.name : reqSk;
+        const minProficiency = typeof reqSk === 'object' ? (reqSk.minimumProficiency || 'Beginner') : 'Beginner';
+        const minWeight = PROFICIENCY_WEIGHTS[minProficiency.toLowerCase()] || 1;
+
+        const normalizedName = reqSkillName.trim().toLowerCase();
+        const userSkill = userSkillsMap.get(normalizedName);
+
+        if (userSkill) {
+          if (userSkill.weight >= minWeight) {
+            matchingSkills.push({
+              name: reqSkillName,
+              userProficiency: userSkill.proficiency,
+              requiredProficiency: minProficiency
+            });
+          } else {
+            skillsToImprove.push({
+              name: reqSkillName,
+              userProficiency: userSkill.proficiency,
+              requiredProficiency: minProficiency
+            });
+          }
+        } else {
+          missingSkills.push({
+            name: reqSkillName,
+            requiredProficiency: minProficiency
+          });
+        }
+      });
+
+      const totalRequired = (career.requiredSkills || []).length;
+      const matchingCount = matchingSkills.length;
+      const matchPercentage = totalRequired > 0 ? Math.round((matchingCount / totalRequired) * 100) : 0;
+
+      return {
+        careerId: career._id,
+        title: career.title,
+        description: career.description,
+        requiredSkillsCount: totalRequired,
+        matchPercentage,
+        matchingSkillsCount: matchingSkills.length,
+        skillsToImproveCount: skillsToImprove.length,
+        missingSkillsCount: missingSkills.length,
+        matchingSkills,
+        skillsToImprove,
+        missingSkills,
+        requiredSkills: career.requiredSkills || []
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      userSkillsCount: (user.skills || []).length,
+      comparedCareers: comparisonResults
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Create a new career path (Admin only)
 // @route   POST /api/careers
 // @access  Private/Admin
 const createCareer = async (req, res, next) => {
   try {
-    const { title, description, category, demand, salaryRange, icon } = req.body;
+    const { title, description, requiredSkills, recommendedSkills, roadmap } = req.body;
 
-    if (!title || typeof title !== 'string' || !title.trim()) {
-      return res.status(400).json({ success: false, message: 'Career title is required' });
+    if (!title || !description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and description are required'
+      });
     }
 
-    if (!description || typeof description !== 'string' || !description.trim()) {
-      return res.status(400).json({ success: false, message: 'Career description is required' });
+    const existingCareer = await Career.findOne({ title: new RegExp(`^${title.trim()}$`, 'i') });
+    if (existingCareer) {
+      return res.status(400).json({
+        success: false,
+        message: `Career with title "${title}" already exists`
+      });
     }
-
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-
-    const existing = await Career.findOne({ $or: [{ title: title.trim() }, { slug }] });
-    if (existing) {
-      return res.status(400).json({ success: false, message: 'Career with this title or slug already exists' });
-    }
-
-    const validDemands = ['Low', 'Medium', 'High', 'Very High', 'Critical'];
-    const assignedDemand = validDemands.includes(demand) ? demand : 'High';
 
     const career = await Career.create({
       title: title.trim(),
-      slug,
       description: description.trim(),
-      category: category && typeof category === 'string' ? category.trim() : 'Software Engineering',
-      demand: assignedDemand,
-      salaryRange: salaryRange && typeof salaryRange === 'string' ? salaryRange.trim() : '$85,000 - $135,000 / year',
-      icon: icon || 'Briefcase'
+      requiredSkills: Array.isArray(requiredSkills) ? requiredSkills : [],
+      recommendedSkills: Array.isArray(recommendedSkills) ? recommendedSkills : [],
+      roadmap: Array.isArray(roadmap) ? roadmap : []
     });
 
-    const formattedCareer = await formatCareerWithSkills(career);
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: 'Career created successfully',
-      career: formattedCareer
+      message: 'Career path created successfully',
+      career
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Update career details (Admin only)
+// @desc    Update a career path (Admin only)
 // @route   PUT /api/careers/:id
 // @access  Private/Admin
 const updateCareer = async (req, res, next) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid Career ID format' });
-    }
+    const { title, description, requiredSkills, recommendedSkills, roadmap } = req.body;
 
     const career = await Career.findById(id);
     if (!career) {
-      return res.status(404).json({ success: false, message: 'Career not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Career path not found'
+      });
     }
 
-    const { title, description, category, demand, salaryRange, icon } = req.body;
-
-    if (title !== undefined) {
-      if (typeof title !== 'string' || !title.trim()) {
-        return res.status(400).json({ success: false, message: 'Career title cannot be empty' });
-      }
-      career.title = title.trim();
-      career.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    }
-
-    if (description !== undefined) {
-      if (typeof description !== 'string' || !description.trim()) {
-        return res.status(400).json({ success: false, message: 'Career description cannot be empty' });
-      }
-      career.description = description.trim();
-    }
-
-    if (category !== undefined) {
-      career.category = typeof category === 'string' ? category.trim() : career.category;
-    }
-
-    if (demand !== undefined) {
-      const validDemands = ['Low', 'Medium', 'High', 'Very High', 'Critical'];
-      if (!validDemands.includes(demand)) {
-        return res.status(400).json({ success: false, message: 'Invalid demand value' });
-      }
-      career.demand = demand;
-    }
-
-    if (salaryRange !== undefined) {
-      career.salaryRange = typeof salaryRange === 'string' ? salaryRange.trim() : career.salaryRange;
-    }
-
-    if (icon !== undefined) {
-      career.icon = typeof icon === 'string' ? icon.trim() : career.icon;
-    }
+    if (title && title.trim()) career.title = title.trim();
+    if (description && description.trim()) career.description = description.trim();
+    if (Array.isArray(requiredSkills)) career.requiredSkills = requiredSkills;
+    if (Array.isArray(recommendedSkills)) career.recommendedSkills = recommendedSkills;
+    if (Array.isArray(roadmap)) career.roadmap = roadmap;
 
     await career.save();
 
-    const formattedCareer = await formatCareerWithSkills(career);
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: 'Career updated successfully',
-      career: formattedCareer
+      message: 'Career path updated successfully',
+      career
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Delete career (Admin only - handles dependent record cleanup)
+// @desc    Delete a career path (Admin only)
 // @route   DELETE /api/careers/:id
 // @access  Private/Admin
 const deleteCareer = async (req, res, next) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid Career ID format' });
-    }
 
     const career = await Career.findById(id);
     if (!career) {
-      return res.status(404).json({ success: false, message: 'Career not found' });
-    }
-
-    // Dependent record cleanup: Delete associated CareerSkill requirements
-    await CareerSkill.deleteMany({ career: id });
-
-    // Reset users targeting this career
-    await User.updateMany({ targetCareer: id }, { targetCareer: null });
-
-    await career.deleteOne();
-
-    res.status(200).json({
-      success: true,
-      message: 'Career path and associated requirements deleted successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Select target career for student
-// @route   POST /api/careers/select-target
-// @access  Private
-const selectTargetCareer = async (req, res, next) => {
-  try {
-    const { careerId } = req.body;
-
-    if (!careerId || !mongoose.Types.ObjectId.isValid(careerId)) {
-      return res.status(400).json({ success: false, message: 'Valid Career ID is required' });
-    }
-
-    const career = await Career.findById(careerId);
-    if (!career) {
-      return res.status(404).json({ success: false, message: 'Career path not found' });
-    }
-
-    const userId = req.user._id || req.user.id;
-    const user = await User.findById(userId);
-    user.targetCareer = careerId;
-    await user.save();
-
-    const updatedUser = await User.findById(userId).populate('targetCareer');
-
-    res.status(200).json({
-      success: true,
-      message: `Target career set to ${career.title}`,
-      user: updatedUser.toJSON()
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ==============================================================
-// CAREER SKILLS (REQUIREMENTS) CONTROLLER ACTIONS
-// ==============================================================
-
-// @desc    Get skills required for a specific career
-// @route   GET /api/careers/:id/skills
-// @access  Public
-const getCareerSkills = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid Career ID format' });
-    }
-
-    const careerSkills = await CareerSkill.find({ career: id }).populate('skill');
-
-    res.status(200).json({
-      success: true,
-      skills: careerSkills
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Add a required skill requirement to a career (Admin only)
-// @route   POST /api/careers/:id/skills
-// @access  Private/Admin
-const addCareerSkill = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { skillId, requiredLevel, priority } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid Career ID format' });
-    }
-
-    if (!skillId || !mongoose.Types.ObjectId.isValid(skillId)) {
-      return res.status(400).json({ success: false, message: 'Valid Skill ID is required' });
-    }
-
-    const career = await Career.findById(id);
-    if (!career) {
-      return res.status(404).json({ success: false, message: 'Career path not found' });
-    }
-
-    const skill = await Skill.findById(skillId);
-    if (!skill) {
-      return res.status(404).json({ success: false, message: 'Skill not found' });
-    }
-
-    const level = Number(requiredLevel);
-    if (!Number.isInteger(level) || level < 0 || level > 4) {
-      return res.status(400).json({ success: false, message: 'Required level must be an integer between 0 and 4' });
-    }
-
-    const validPriorities = ['low', 'medium', 'high', 'critical'];
-    const normPriority = typeof priority === 'string' ? priority.toLowerCase().trim() : '';
-    if (!validPriorities.includes(normPriority)) {
-      return res.status(400).json({ success: false, message: 'Priority must be one of: low, medium, high, critical' });
-    }
-
-    let careerSkill = await CareerSkill.findOne({ career: id, skill: skillId });
-
-    if (careerSkill) {
-      careerSkill.requiredLevel = level;
-      careerSkill.priority = normPriority;
-      await careerSkill.save();
-    } else {
-      careerSkill = await CareerSkill.create({
-        career: id,
-        skill: skillId,
-        requiredLevel: level,
-        priority: normPriority
+      return res.status(404).json({
+        success: false,
+        message: 'Career path not found'
       });
     }
 
-    const populated = await CareerSkill.findById(careerSkill._id).populate('skill');
+    await Career.findByIdAndDelete(id);
 
-    res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: 'Career skill requirement saved successfully',
-      careerSkill: populated
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Update a CareerSkill record by CareerSkill ID (Admin only)
-// @route   PUT /api/career-skills/:id
-// @access  Private/Admin
-const updateCareerSkill = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { requiredLevel, priority } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid CareerSkill ID format' });
-    }
-
-    const careerSkill = await CareerSkill.findById(id);
-    if (!careerSkill) {
-      return res.status(404).json({ success: false, message: 'Career skill requirement record not found' });
-    }
-
-    if (requiredLevel !== undefined) {
-      const level = Number(requiredLevel);
-      if (!Number.isInteger(level) || level < 0 || level > 4) {
-        return res.status(400).json({ success: false, message: 'Required level must be an integer between 0 and 4' });
-      }
-      careerSkill.requiredLevel = level;
-    }
-
-    if (priority !== undefined) {
-      const validPriorities = ['low', 'medium', 'high', 'critical'];
-      const normPriority = typeof priority === 'string' ? priority.toLowerCase().trim() : '';
-      if (!validPriorities.includes(normPriority)) {
-        return res.status(400).json({ success: false, message: 'Priority must be one of: low, medium, high, critical' });
-      }
-      careerSkill.priority = normPriority;
-    }
-
-    await careerSkill.save();
-
-    const populated = await CareerSkill.findById(id).populate('skill');
-
-    res.status(200).json({
-      success: true,
-      message: 'Career skill requirement updated successfully',
-      careerSkill: populated
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Delete a CareerSkill record by CareerSkill ID (Admin only)
-// @route   DELETE /api/career-skills/:id
-// @access  Private/Admin
-const deleteCareerSkill = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid CareerSkill ID format' });
-    }
-
-    const careerSkill = await CareerSkill.findById(id);
-    if (!careerSkill) {
-      return res.status(404).json({ success: false, message: 'Career skill requirement record not found' });
-    }
-
-    await careerSkill.deleteOne();
-
-    res.status(200).json({
-      success: true,
-      message: 'Career skill requirement removed successfully'
+      message: `Career path "${career.title}" deleted successfully`
     });
   } catch (error) {
     next(error);
@@ -407,14 +347,13 @@ const deleteCareerSkill = async (req, res, next) => {
 };
 
 module.exports = {
-  getAllCareers,
+  getCareers,
   getCareerById,
+  selectTargetCareer,
+  compareCareers,
   createCareer,
   updateCareer,
-  deleteCareer,
-  selectTargetCareer,
-  getCareerSkills,
-  addCareerSkill,
-  updateCareerSkill,
-  deleteCareerSkill
+  deleteCareer
 };
+
+

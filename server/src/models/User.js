@@ -1,84 +1,107 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
+const userSkillSchema = new mongoose.Schema({
+  skillId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Skill'
+  },
   name: {
     type: String,
-    required: [true, 'Name is required'],
-    trim: true,
-    maxlength: [50, 'Name cannot exceed 50 characters']
-  },
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email address']
-  },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters'],
-    select: false
-  },
-  role: {
-    type: String,
-    enum: {
-      values: ['student', 'admin'],
-      message: '{VALUE} is not a valid role'
-    },
-    default: 'student'
-  },
-  education: {
-    type: String,
-    default: '',
+    required: true,
     trim: true
   },
-  interests: [{
+  proficiency: {
     type: String,
-    trim: true
-  }],
-  targetCareer: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Career',
-    default: null
+    enum: ['Beginner', 'Intermediate', 'Advanced', 'Expert'],
+    default: 'Beginner',
+    required: true
   },
-  bio: {
+  category: {
     type: String,
-    default: '',
-    maxlength: [500, 'Bio cannot exceed 500 characters']
-  },
-  githubUrl: {
-    type: String,
-    default: ''
-  },
-  linkedinUrl: {
-    type: String,
-    default: ''
+    default: 'General'
   }
-}, {
-  timestamps: true
-});
+}, { _id: true, timestamps: true });
 
-// Pre-save hook for password hashing (Async style for modern Mongoose)
-userSchema.pre('save', async function() {
-  if (!this.isModified('password')) return;
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Full Name is required'],
+      trim: true
+    },
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
+      unique: true,
+      lowercase: true,
+      trim: true
+    },
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      minlength: [6, 'Password must be at least 6 characters']
+    },
+    role: {
+      type: String,
+      enum: ['USER', 'ADMIN'],
+      default: 'USER'
+    },
+    education: {
+      type: String,
+      default: ''
+    },
+    college: {
+      type: String,
+      default: ''
+    },
+    degree: {
+      type: String,
+      default: ''
+    },
+    graduationYear: {
+      type: String,
+      default: ''
+    },
+    experienceLevel: {
+      type: String,
+      enum: ['Student', 'Entry Level', 'Intermediate', 'Experienced'],
+      default: 'Student'
+    },
+    interests: [{
+      type: String
+    }],
+    targetCareer: {
+      type: String,
+      default: 'Full Stack Web Developer'
+    },
+    skills: [userSkillSchema]
+  },
+  {
+    timestamps: true
+  }
+);
+
+// Hash password before saving
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
-// Match entered password to hashed password
-userSchema.methods.matchPassword = async function(enteredPassword) {
-  if (!this.password) return false;
+// Match user entered password to hashed password in database
+userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Ensure password is never returned in JSON output
-userSchema.methods.toJSON = function() {
-  const userObj = this.toObject();
-  delete userObj.password;
-  return userObj;
+// Method to return user object without password
+userSchema.methods.toSafeObject = function () {
+  const userObject = this.toObject();
+  delete userObject.password;
+  return userObject;
 };
 
 module.exports = mongoose.model('User', userSchema);

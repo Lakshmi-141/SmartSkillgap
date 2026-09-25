@@ -1,276 +1,348 @@
 import React, { useState, useEffect } from 'react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
-import axiosInstance from '../api/axiosInstance';
-import LoadingSpinner from '../components/LoadingSpinner';
-import Alert from '../components/Alert';
-import SafeLink from '../components/SafeLink';
-import { User, Mail, GraduationCap, Globe, Share2, Award, Save, Target } from 'lucide-react';
+import { getUserProfileApi, updateUserProfileApi } from '../services/api';
+import { 
+  User, 
+  GraduationCap, 
+  Briefcase, 
+  Target, 
+  Sparkles, 
+  Save, 
+  CheckCircle2, 
+  AlertCircle, 
+  BookOpen,
+  Calendar,
+  Building
+} from 'lucide-react';
 
 const Profile = () => {
-  const { user, refreshUser } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [careers, setCareers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const [formData, setFormData] = useState({
+  const { user: authUser } = useAuth();
+  const [profile, setProfile] = useState({
     name: '',
-    bio: '',
+    email: '',
     education: '',
+    college: '',
+    degree: '',
+    graduationYear: '',
+    experienceLevel: 'Student',
     interests: '',
-    targetCareer: '',
-    githubUrl: '',
-    linkedinUrl: ''
+    targetCareer: 'Full Stack Web Developer'
   });
 
-  const [alertInfo, setAlertInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    fetchProfileData();
+    document.title = 'SmartSkillGap | User Profile';
+    fetchProfile();
   }, []);
 
-  const fetchProfileData = async () => {
+  const fetchProfile = async () => {
     try {
-      setLoading(true);
-      const [profRes, careerRes] = await Promise.all([
-        axiosInstance.get('/users/profile'),
-        axiosInstance.get('/careers')
-      ]);
-
-      if (profRes.data.success) {
-        const prof = profRes.data.profile;
-        setProfile(prof);
-        setFormData({
-          name: prof.name || '',
-          bio: prof.bio || '',
-          education: prof.education || '',
-          interests: Array.isArray(prof.interests) ? prof.interests.join(', ') : prof.interests || '',
-          targetCareer: prof.targetCareer?._id || prof.targetCareer || '',
-          githubUrl: prof.githubUrl || '',
-          linkedinUrl: prof.linkedinUrl || ''
+      const data = await getUserProfileApi();
+      if (data.success && data.user) {
+        setProfile({
+          name: data.user.name || '',
+          email: data.user.email || '',
+          education: data.user.education || '',
+          college: data.user.college || '',
+          degree: data.user.degree || '',
+          graduationYear: data.user.graduationYear || '',
+          experienceLevel: data.user.experienceLevel || 'Student',
+          interests: Array.isArray(data.user.interests) ? data.user.interests.join(', ') : '',
+          targetCareer: data.user.targetCareer || 'Full Stack Web Developer'
         });
       }
-
-      if (careerRes.data.success) {
-        setCareers(careerRes.data.careers || careerRes.data.careerPaths || []);
-      }
     } catch (err) {
-      setAlertInfo({ type: 'error', message: 'Failed to load profile details' });
+      console.error('Failed to fetch profile:', err);
+      setMessage({ type: 'error', text: 'Failed to load profile data.' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setAlertInfo(null);
-    setSaving(true);
+    setMessage({ type: '', text: '' });
+    setIsSaving(true);
 
     try {
-      const res = await axiosInstance.put('/users/profile', formData);
-      if (res.data.success) {
-        setProfile(res.data.profile);
-        await refreshUser();
-        setAlertInfo({ type: 'success', message: 'Profile details saved successfully!' });
+      const formattedInterests = profile.interests
+        ? profile.interests.split(',').map((i) => i.trim()).filter(Boolean)
+        : [];
+
+      const payload = {
+        name: profile.name,
+        education: profile.education,
+        college: profile.college,
+        degree: profile.degree,
+        graduationYear: profile.graduationYear,
+        experienceLevel: profile.experienceLevel,
+        interests: formattedInterests,
+        targetCareer: profile.targetCareer
+      };
+
+      const data = await updateUserProfileApi(payload);
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Profile updated and saved successfully!' });
+        setIsEditing(false);
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to update profile.' });
       }
     } catch (err) {
-      setAlertInfo({
-        type: 'error',
-        message: err.response?.data?.message || 'Failed to update profile'
-      });
+      console.error('Profile update error:', err);
+      setMessage({ type: 'error', text: 'An error occurred while saving profile changes.' });
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   };
 
-  if (loading) return <LoadingSpinner fullScreen message="Loading profile..." />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F8FBFF] flex flex-col justify-between">
+        <Navbar />
+        <div className="flex justify-center items-center py-24">
+          <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12">
-      <div>
-        <h1 className="text-3xl font-black text-white tracking-tight">Student Profile</h1>
-        <p className="text-slate-400 text-sm mt-1">Manage your personal information, education, and target career path</p>
-      </div>
+    <div className="min-h-screen bg-[#F8FBFF] flex flex-col justify-between font-sans text-[#334155]">
+      <Navbar />
 
-      {alertInfo && <Alert type={alertInfo.type} message={alertInfo.message} onClose={() => setAlertInfo(null)} />}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col items-center text-center">
-          <div className="w-24 h-24 rounded-full bg-gradient-primary flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-blue-600/30 mb-4">
-            {profile?.name?.charAt(0).toUpperCase()}
-          </div>
-          <h2 className="text-xl font-bold text-white">{profile?.name}</h2>
-          <p className="text-xs text-blue-400 font-medium mt-0.5 capitalize">{profile?.role}</p>
-          <p className="text-xs text-slate-400 mt-2">{profile?.email}</p>
-
-          <div className="w-full border-t border-slate-800 my-5 pt-5 space-y-3 text-left">
-            <div className="flex items-center gap-2 text-xs text-slate-300">
-              <Target className="w-4 h-4 text-purple-400" />
-              <span>Goal: <strong className="text-white">{profile?.targetCareer?.title || 'None Selected'}</strong></span>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8">
+        
+        {/* Header Banner */}
+        <div className="bg-[#FFFFFF] p-6 sm:p-8 rounded-2xl border border-[#DBEAFE] shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center font-extrabold text-xl shadow-md shadow-[#2563EB]/20">
+              {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-300">
-              <GraduationCap className="w-4 h-4 text-emerald-400" />
-              <span>Education: <strong className="text-white">{profile?.education || 'Not Specified'}</strong></span>
+            <div>
+              <h1 className="text-2xl font-extrabold text-[#1E3A8A]">
+                {profile.name}
+              </h1>
+              <p className="text-xs text-[#64748B] mt-0.5">{profile.email}</p>
             </div>
           </div>
 
-          <div className="w-full flex gap-3 pt-2">
-            {profile?.githubUrl && (
-              <SafeLink
-                href={profile.githubUrl}
-                className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
-              >
-                <Globe className="w-4 h-4 text-blue-400" /> GitHub
-              </SafeLink>
-            )}
-            {profile?.linkedinUrl && (
-              <SafeLink
-                href={profile.linkedinUrl}
-                className="flex-1 py-2 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-700/50 text-blue-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
-              >
-                <Share2 className="w-4 h-4 text-purple-400" /> LinkedIn
-              </SafeLink>
-            )}
-          </div>
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              isEditing
+                ? 'bg-[#EFF6FF] text-[#1E3A8A] border border-[#DBEAFE]'
+                : 'bg-[#2563EB] text-white shadow-md shadow-[#2563EB]/25 hover:bg-[#1E3A8A]'
+            }`}
+          >
+            {isEditing ? 'Cancel Editing' : 'Edit Profile'}
+          </button>
         </div>
 
-        <div className="md:col-span-2 glass-panel p-8 rounded-3xl border border-slate-800">
-          <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-            <User className="w-5 h-5 text-blue-400" /> Edit Profile Details
-          </h3>
+        {/* Message Banner */}
+        {message.text && (
+          <div
+            className={`p-4 rounded-xl border flex items-center gap-3 text-xs font-medium ${
+              message.type === 'success'
+                ? 'bg-[#EFF6FF] border-[#DBEAFE] text-[#1E3A8A]'
+                : 'bg-rose-50 border-rose-200 text-rose-700'
+            }`}
+          >
+            {message.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-[#2563EB]" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600" />
+            )}
+            <span>{message.text}</span>
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Full Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl glass-input text-sm"
-              />
-            </div>
+        {/* Profile Card Form */}
+        <form onSubmit={handleSubmit} className="space-y-8">
+          
+          {/* Section 1: Basic Information */}
+          <div className="bg-[#FFFFFF] p-6 sm:p-8 rounded-2xl border border-[#DBEAFE] shadow-sm">
+            <h2 className="text-lg font-bold text-[#1E3A8A] flex items-center gap-2 mb-6 pb-3 border-b border-[#DBEAFE]">
+              <User className="w-5 h-5 text-[#2563EB]" />
+              Basic Personal Details
+            </h2>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Target Career Path
-              </label>
-              <select
-                name="targetCareer"
-                value={formData.targetCareer}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl glass-input text-sm"
-              >
-                <option value="">-- Select Target Career --</option>
-                {careers.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.title} ({c.category})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Education / Degree
-              </label>
-              <div className="relative">
-                <GraduationCap className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  Full Name
+                </label>
                 <input
                   type="text"
-                  name="education"
-                  value={formData.education}
-                  onChange={handleChange}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl glass-input text-sm"
-                  placeholder="e.g. B.S. Computer Science"
+                  disabled={!isEditing}
+                  value={profile.name}
+                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  disabled
+                  value={profile.email}
+                  className="w-full px-4 py-3 bg-[#EFF6FF] border border-[#DBEAFE] rounded-xl text-sm text-[#64748B] cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  Target Career Goal
+                </label>
+                <select
+                  disabled={!isEditing}
+                  value={profile.targetCareer}
+                  onChange={(e) => setProfile({ ...profile, targetCareer: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
+                >
+                  <option value="Full Stack Web Developer">Full Stack Web Developer</option>
+                  <option value="Data Scientist & AI Engineer">Data Scientist & AI Engineer</option>
+                  <option value="DevOps & Cloud Engineer">DevOps & Cloud Engineer</option>
+                  <option value="UI/UX Product Designer">UI/UX Product Designer</option>
+                  <option value="Mobile App Developer">Mobile App Developer</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  Experience Level
+                </label>
+                <select
+                  disabled={!isEditing}
+                  value={profile.experienceLevel}
+                  onChange={(e) => setProfile({ ...profile, experienceLevel: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
+                >
+                  <option value="Student">Student / Fresher</option>
+                  <option value="Entry Level">Entry Level (0-2 Yrs)</option>
+                  <option value="Intermediate">Intermediate (2-5 Yrs)</option>
+                  <option value="Experienced">Experienced (5+ Yrs)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Education Details */}
+          <div className="bg-[#FFFFFF] p-6 sm:p-8 rounded-2xl border border-[#DBEAFE] shadow-sm">
+            <h2 className="text-lg font-bold text-[#1E3A8A] flex items-center gap-2 mb-6 pb-3 border-b border-[#DBEAFE]">
+              <GraduationCap className="w-5 h-5 text-[#2563EB]" />
+              Education & Academic Background
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  Highest Education Level
+                </label>
+                <input
+                  type="text"
+                  disabled={!isEditing}
+                  placeholder="e.g. Bachelor's Degree"
+                  value={profile.education}
+                  onChange={(e) => setProfile({ ...profile, education: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  College / University
+                </label>
+                <input
+                  type="text"
+                  disabled={!isEditing}
+                  placeholder="e.g. Stanford University"
+                  value={profile.college}
+                  onChange={(e) => setProfile({ ...profile, college: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  Degree / Major
+                </label>
+                <input
+                  type="text"
+                  disabled={!isEditing}
+                  placeholder="e.g. Computer Science & Engineering"
+                  value={profile.degree}
+                  onChange={(e) => setProfile({ ...profile, degree: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                  Graduation Year
+                </label>
+                <input
+                  type="text"
+                  disabled={!isEditing}
+                  placeholder="e.g. 2025"
+                  value={profile.graduationYear}
+                  onChange={(e) => setProfile({ ...profile, graduationYear: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
                 />
               </div>
             </div>
+          </div>
+
+          {/* Section 3: Interests & Career Preferences */}
+          <div className="bg-[#FFFFFF] p-6 sm:p-8 rounded-2xl border border-[#DBEAFE] shadow-sm">
+            <h2 className="text-lg font-bold text-[#1E3A8A] flex items-center gap-2 mb-6 pb-3 border-b border-[#DBEAFE]">
+              <Sparkles className="w-5 h-5 text-[#2563EB]" />
+              Career Interests & Focus Topics
+            </h2>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Interests (Comma separated)
+              <label className="block text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-2">
+                Interests (Comma Separated)
               </label>
               <input
                 type="text"
-                name="interests"
-                value={formData.interests}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl glass-input text-sm"
-                placeholder="e.g. Web Development, Cloud Computing, Machine Learning"
+                disabled={!isEditing}
+                placeholder="e.g. Web Development, Cloud Computing, AI Solutions, Microservices"
+                value={profile.interests}
+                onChange={(e) => setProfile({ ...profile, interests: e.target.value })}
+                className="w-full px-4 py-3 bg-[#F8FBFF] border border-[#DBEAFE] rounded-xl text-sm text-[#334155] focus:outline-none focus:border-[#2563EB] disabled:opacity-70"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Bio / Personal Summary
-              </label>
-              <textarea
-                name="bio"
-                rows="3"
-                value={formData.bio}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl glass-input text-sm resize-none"
-                placeholder="Briefly describe your career goals..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  GitHub Profile URL
-                </label>
-                <div className="relative">
-                  <Globe className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" />
-                  <input
-                    type="url"
-                    name="githubUrl"
-                    value={formData.githubUrl}
-                    onChange={handleChange}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl glass-input text-sm"
-                    placeholder="https://github.com/username"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  LinkedIn Profile URL
-                </label>
-                <div className="relative">
-                  <Share2 className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" />
-                  <input
-                    type="url"
-                    name="linkedinUrl"
-                    value={formData.linkedinUrl}
-                    onChange={handleChange}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl glass-input text-sm"
-                    placeholder="https://linkedin.com/in/username"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 flex justify-end">
+          {/* Save Action Button */}
+          {isEditing && (
+            <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                disabled={saving}
-                className="px-6 py-3 rounded-xl bg-gradient-primary text-white font-bold text-sm shadow-lg shadow-blue-600/30 hover:opacity-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                disabled={isSaving}
+                className="px-8 py-3.5 rounded-xl font-bold text-white bg-[#2563EB] hover:bg-[#1E3A8A] shadow-lg shadow-[#2563EB]/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer text-sm"
               >
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Profile Changes'}
+                <span>{isSaving ? 'Saving Changes...' : 'Save Profile Changes'}</span>
               </button>
             </div>
-          </form>
-        </div>
-      </div>
+          )}
+
+        </form>
+
+      </main>
+
+      <Footer />
     </div>
   );
 };

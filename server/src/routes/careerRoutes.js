@@ -1,29 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getAllCareers,
+  getCareers,
   getCareerById,
+  selectTargetCareer,
+  compareCareers,
   createCareer,
   updateCareer,
-  deleteCareer,
-  selectTargetCareer,
-  getCareerSkills,
-  addCareerSkill
+  deleteCareer
 } = require('../controllers/careerController');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, admin } = require('../middleware/authMiddleware');
 
-// Public routes
-router.get('/', getAllCareers);
-router.get('/:id', getCareerById);
-router.get('/:id/skills', getCareerSkills);
-
-// Protected student routes
-router.post('/select-target', protect, selectTargetCareer);
-
-// Protected admin-only routes
-router.post('/', protect, adminOnly, createCareer);
-router.put('/:id', protect, adminOnly, updateCareer);
-router.delete('/:id', protect, adminOnly, deleteCareer);
-router.post('/:id/skills', protect, adminOnly, addCareerSkill);
+router.get('/', protect, getCareers);
+router.post('/', protect, admin, createCareer);
+router.post('/compare', protect, compareCareers);
+router.get('/:id', protect, getCareerById);
+router.put('/:id', protect, admin, updateCareer);
+router.delete('/:id', protect, admin, deleteCareer);
+router.post('/:id/select', protect, selectTargetCareer);
 
 module.exports = router;
+
+

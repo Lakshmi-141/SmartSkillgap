@@ -1,17 +1,23 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from './LoadingSpinner';
 
 const ProtectedRoute = ({ children }) => {
-  const { user, token, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
-    return <LoadingSpinner fullScreen message="Authenticating session..." />;
+    return (
+      <div className="min-h-screen bg-[#F8FBFF] flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-semibold text-[#1E3A8A]">Authenticating session...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!token || !user) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

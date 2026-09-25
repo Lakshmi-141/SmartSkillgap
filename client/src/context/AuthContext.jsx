@@ -1,128 +1,79 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axiosInstance from '../api/axiosInstance';
+import { registerUserApi, loginUserApi, getMeApi } from '../services/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem('smartskill_user');
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [token, setToken] = useState(() => localStorage.getItem('smartskill_token') || null);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Load user profile on mount if token exists
   useEffect(() => {
     const initAuth = async () => {
-      if (token) {
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
         try {
-          const res = await axiosInstance.get('/auth/me');
-          if (res.data?.success && res.data?.user) {
-            setUser(res.data.user);
-            localStorage.setItem('smartskill_user', JSON.stringify(res.data.user));
-          }
-        } catch (err) {
-          console.error('Session verification error:', err);
-          if (err.response?.status === 401 || err.response?.status === 403) {
+          const data = await getMeApi();
+          if (data.success) {
+            setUser(data.user);
+            setToken(storedToken);
+          } else {
             logout();
           }
+        } catch (err) {
+          console.error('[AuthContext] Session verification failed:', err);
+          logout();
         }
       }
       setLoading(false);
     };
+
     initAuth();
-  }, [token]);
+  }, []);
 
   const login = async (email, password) => {
     setError(null);
     try {
-      const res = await axiosInstance.post('/auth/login', { email, password });
-      if (res.data?.success) {
-        setToken(res.data.token);
-        setUser(res.data.user);
-        localStorage.setItem('smartskill_token', res.data.token);
-        localStorage.setItem('smartskill_user', JSON.stringify(res.data.user));
-        return { success: true, user: res.data.user };
+      const data = await loginUserApi({ email, password });
+      if (data && data.success) {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        return { success: true, user: data.user };
       }
-      return { success: false, message: res.data?.message || 'Login failed.' };
+      return { success: false, message: data?.message || 'Login failed.' };
     } catch (err) {
-      const serverMessage = err.response?.data?.message;
-      let msg = serverMessage;
-      if (!msg) {
-        if (err.response?.status === 502 || err.response?.status === 503 || err.response?.status === 504) {
-          msg = 'Authentication server is temporarily unavailable. Please check backend connection.';
-        } else if (err.response?.status === 404) {
-          msg = 'Backend API route not found. Please check API URL settings.';
-        } else if (!err.response && err.message === 'Network Error') {
-          msg = 'Unable to reach the authentication server. Please check your network connection.';
-        } else {
-          msg = err.message || 'Invalid email or password.';
-        }
-      }
-      setError(msg);
-      return { success: false, message: msg };
+      const message = err.response?.data?.message || 'Login failed. Please try again.';
+      setError(message);
+      return { success: false, message };
     }
   };
 
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, confirmPassword, targetRole) => {
     setError(null);
     try {
-      const res = await axiosInstance.post('/auth/register', { name, email, password });
-      if (res.data?.success) {
-        setToken(res.data.token);
-        setUser(res.data.user);
-        localStorage.setItem('smartskill_token', res.data.token);
-        localStorage.setItem('smartskill_user', JSON.stringify(res.data.user));
-        return { success: true, user: res.data.user };
+      const data = await registerUserApi({ name, email, password, confirmPassword, targetRole });
+      if (data && data.success) {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        return { success: true, user: data.user };
       }
-      return { success: false, message: res.data?.message || 'Registration failed.' };
+      return { success: false, message: data?.message || 'Registration failed.' };
     } catch (err) {
-      const serverMessage = err.response?.data?.message;
-      let msg = serverMessage;
-      if (!msg) {
-        if (err.response?.status === 502 || err.response?.status === 503 || err.response?.status === 504) {
-          msg = 'Authentication server is temporarily unavailable. Please check backend connection.';
-        } else if (err.response?.status === 404) {
-          msg = 'Backend API route not found. Please check API URL settings.';
-        } else if (!err.response && err.message === 'Network Error') {
-          msg = 'Unable to reach the authentication server. Please check your network connection.';
-        } else {
-          msg = err.message || 'Registration failed. Please try again.';
-        }
-      }
-      setError(msg);
-      return { success: false, message: msg };
+      const message = err.response?.data?.message || 'Registration failed. Please try again.';
+      setError(message);
+      return { success: false, message };
     }
   };
 
-  const logout = async () => {
-    try {
-      await axiosInstance.post('/auth/logout').catch(() => {});
-    } catch (e) {
-      // Ignore network errors during logout
-    } finally {
-      setToken(null);
-      setUser(null);
-      localStorage.removeItem('smartskill_token');
-      localStorage.removeItem('smartskill_user');
-    }
-  };
-
-  const refreshUser = async () => {
-    if (!token) return;
-    try {
-      const res = await axiosInstance.get('/auth/me');
-      if (res.data?.success && res.data?.user) {
-        setUser(res.data.user);
-        localStorage.setItem('smartskill_user', JSON.stringify(res.data.user));
-      }
-    } catch (err) {
-      console.error('Error refreshing user profile:', err);
-    }
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    setError(null);
   };
 
   return (
@@ -135,7 +86,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        refreshUser
+        isAuthenticated: !!user
       }}
     >
       {children}
@@ -143,4 +94,12 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export default AuthContext;

@@ -3,23 +3,15 @@ const mongoose = require('mongoose');
 const skillSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Skill name is required'],
-    unique: true,
-    trim: true
+    required: true,
+    unique: true
   },
   category: {
     type: String,
-    required: [true, 'Category is required'],
-    trim: true
+    default: 'General'
   },
   description: {
-    type: String,
-    trim: true,
-    default: ''
-  },
-  icon: {
-    type: String,
-    default: 'Code'
+    type: String
   }
 }, {
   timestamps: true

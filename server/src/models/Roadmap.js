@@ -1,70 +1,55 @@
 const mongoose = require('mongoose');
 
-const roadmapStepSchema = new mongoose.Schema({
-  skill: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Skill'
+const resourceSchema = new mongoose.Schema({
+  title: String,
+  resourceType: { type: String, default: 'Documentation' },
+  url: String
+}, { _id: false });
+
+const phaseSchema = new mongoose.Schema({
+  phaseNumber: {
+    type: Number,
+    required: true
   },
   title: {
     type: String,
-    required: [true, 'Step title is required'],
-    trim: true
+    required: true
   },
-  description: {
+  description: String,
+  learningObjectives: [String],
+  prerequisites: [String],
+  estimatedTime: {
     type: String,
-    trim: true,
-    default: ''
+    default: '1 Week'
   },
-  order: {
-    type: Number,
-    required: [true, 'Step order is required']
-  },
-  priority: {
-    type: String,
-    enum: {
-      values: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'low', 'medium', 'high', 'critical'],
-      message: '{VALUE} is not a valid priority'
-    },
-    default: 'MEDIUM'
-  },
+  resources: [resourceSchema],
   status: {
     type: String,
-    enum: {
-      values: ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'not_started', 'in_progress', 'completed'],
-      message: '{VALUE} is not a valid status'
-    },
-    default: 'NOT_STARTED'
-  },
-  progress: {
-    type: Number,
-    min: [0, 'Progress cannot be less than 0'],
-    max: [100, 'Progress cannot be greater than 100'],
-    default: 0
-  },
-  completedAt: {
-    type: Date,
-    default: null
+    enum: ['Not Started', 'In Progress', 'Completed'],
+    default: 'Not Started'
   }
-}, { _id: true });
+}, { _id: true, timestamps: true });
 
-const roadmapSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'User reference is required']
+const roadmapSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    targetCareer: {
+      type: String,
+      required: true
+    },
+    overallProgress: {
+      type: Number,
+      default: 0
+    },
+    phases: [phaseSchema]
   },
-  career: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Career',
-    required: [true, 'Career reference is required']
-  },
-  steps: [roadmapStepSchema],
-  generatedAt: {
-    type: Date,
-    default: Date.now
+  {
+    timestamps: true
   }
-}, {
-  timestamps: true
-});
+);
 
 module.exports = mongoose.model('Roadmap', roadmapSchema);

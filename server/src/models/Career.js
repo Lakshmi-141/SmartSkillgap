@@ -1,57 +1,56 @@
 const mongoose = require('mongoose');
 
-const careerSchema = new mongoose.Schema({
-  title: {
+const requiredSkillSchema = new mongoose.Schema({
+  name: {
     type: String,
-    required: [true, 'Career title is required'],
-    unique: true,
+    required: true,
     trim: true
   },
-  slug: {
+  importance: {
     type: String,
-    required: [true, 'Career slug is required'],
-    unique: true,
-    lowercase: true,
-    trim: true
-  },
-  description: {
-    type: String,
-    required: [true, 'Career description is required'],
-    trim: true
+    enum: ['Core', 'Required', 'Recommended'],
+    default: 'Required'
   },
   category: {
     type: String,
-    required: [true, 'Category is required'],
-    trim: true,
-    default: 'Software Engineering'
+    default: 'Technical'
+  }
+}, { _id: false });
+
+const roadmapStepSchema = new mongoose.Schema({
+  step: {
+    type: Number,
+    required: true
   },
-  demand: {
+  title: {
     type: String,
-    enum: {
-      values: ['Low', 'Medium', 'High', 'Very High', 'Critical'],
-      message: '{VALUE} is not a valid demand level'
+    required: true
+  },
+  description: String,
+  skills: [String]
+}, { _id: false });
+
+const careerSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: [true, 'Career title is required'],
+      unique: true,
+      trim: true
     },
-    default: 'High'
+    description: {
+      type: String,
+      required: [true, 'Career description is required']
+    },
+    requiredSkills: [requiredSkillSchema],
+    recommendedSkills: [{
+      type: String
+    }],
+    roadmap: [roadmapStepSchema]
   },
-  salaryRange: {
-    type: String,
-    required: [true, 'Salary range is required'],
-    trim: true
-  },
-  icon: {
-    type: String,
-    default: 'Briefcase'
+  {
+    timestamps: true
   }
-}, {
-  timestamps: true
-});
+);
 
-// Auto-generate slug before validate if not present
-careerSchema.pre('validate', function() {
-  if (this.title && !this.slug) {
-    this.slug = this.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-  }
-});
-
-const Career = mongoose.model('Career', careerSchema);
-module.exports = Career;
+module.exports = mongoose.model('Career', careerSchema);

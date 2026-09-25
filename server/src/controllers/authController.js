@@ -1,76 +1,98 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const generateToken = require('../utils/generateToken');
 
-const getJwtSecret = () => process.env.JWT_SECRET || 'smartskill_jwt_secret_key_2026';
-
-const generateToken = (user) => {
-  return jwt.sign(
-    {
-      id: user._id.toString(),
-      userId: user._id.toString(),
-      role: user.role
-    },
-    getJwtSecret(),
-    {
-      expiresIn: '30d'
-    }
-  );
-};
-
-// @desc    Register a new user (Public registration ALWAYS forces role=student)
+// @desc    Register a new user
 // @route   POST /api/auth/register
 // @access  Public
-const register = async (req, res, next) => {
+const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, confirmPassword, targetRole } = req.body;
 
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      return res.status(400).json({ success: false, message: 'Please provide a valid name' });
+    // 1. NoSQL Injection protection: Ensure inputs are primitive strings
+    if (
+      typeof name !== 'string' ||
+      typeof email !== 'string' ||
+      typeof password !== 'string'
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid input data types. Fields must be strings.'
+      });
     }
 
-    if (!email || typeof email !== 'string' || !email.trim()) {
-      return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
+    const trimmedName = name.trim();
+    const trimmedEmail = email.toLowerCase().trim();
+
+    // 2. Validation for missing fields
+    if (!trimmedName || !trimmedEmail || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields: name, email, and password'
+      });
     }
 
-    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-    if (!emailRegex.test(email.trim())) {
-      return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
+    // 3. Validate password match if confirmPassword was passed
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
     }
 
-    if (!password || typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    // 4. Password length check
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Check if user exists
-    const userExists = await User.findOne({ email: normalizedEmail });
+    // 5. Duplicate email validation
+    const userExists = await User.findOne({ email: trimmedEmail });
     if (userExists) {
-      return res.status(400).json({ success: false, message: 'User already exists with this email' });
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered. Please sign in instead.'
+      });
     }
 
-    // Public registration MUST ALWAYS force role = 'student' (ignore any role sent by frontend)
+    // 6. Create user
+    const userRole = (req.body.role && typeof req.body.role === 'string' && ['USER', 'ADMIN'].includes(req.body.role.toUpperCase())) 
+      ? req.body.role.toUpperCase() 
+      : 'USER';
+
     const user = await User.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      password: password, // Mongoose model pre-save hook handles bcrypt hashing
-      role: 'student'
+      name: trimmedName,
+      email: trimmedEmail,
+      password,
+      role: userRole,
+      targetRole: typeof targetRole === 'string' ? targetRole : 'Full Stack Web Developer'
     });
 
-    const token = generateToken(user);
 
-    const userObj = user.toJSON();
+    if (user) {
+      const token = generateToken(user._id);
 
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+      return res.status(201).json({
+        success: true,
+        message: 'User registered successfully',
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          targetRole: user.targetRole,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user data provided'
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -79,139 +101,83 @@ const register = async (req, res, next) => {
 // @desc    Authenticate user & get token
 // @route   POST /api/auth/login
 // @access  Public
-const login = async (req, res, next) => {
+const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const genericErrorMessage = 'Invalid email or password.';
 
-    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-      return res.status(401).json({ success: false, message: genericErrorMessage });
+    // 1. NoSQL Injection protection: Ensure inputs are primitive strings
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid input data types. Fields must be strings.'
+      });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const trimmedEmail = email.toLowerCase().trim();
 
-    // Fetch user and explicitly select password field for validation
-    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+    // 2. Validation for missing fields
+    if (!trimmedEmail || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide both email and password'
+      });
+    }
+
+    // 3. Check for user
+    const user = await User.findOne({ email: trimmedEmail });
+
+    if (user && (await user.matchPassword(password))) {
+      const token = generateToken(user._id);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Login successful',
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          targetRole: user.targetRole,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      });
+    } else {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get current logged in user profile
+// @route   GET /api/auth/me
+// @access  Private
+const getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
     if (!user) {
-      return res.status(401).json({ success: false, message: genericErrorMessage });
+      return res.status(404).json({
+        success: false,
+        message: 'User profile not found'
+      });
     }
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: genericErrorMessage });
-    }
-
-    const token = generateToken(user);
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        targetCareer: user.targetCareer
+        targetRole: user.targetRole,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
       }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get current authenticated user profile
-// @route   GET /api/auth/me
-// @access  Private
-const getMe = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user._id || req.user.id)
-      .populate('targetCareer')
-      .select('-password');
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    res.status(200).json({
-      success: true,
-      user: user.toJSON()
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Public
-const logout = async (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Logged out successfully'
-  });
-};
-
-// @desc    Refresh user token
-// @route   POST /api/auth/refresh
-// @access  Public
-const refreshToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, message: 'No token provided' });
-    }
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, getJwtSecret());
-    const user = await User.findById(decoded.userId || decoded.id).select('-password');
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'User not found' });
-    }
-    const newToken = generateToken(user);
-    res.status(200).json({
-      success: true,
-      token: newToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
-  }
-};
-
-// @desc    Request password reset
-// @route   POST /api/auth/forgot-password
-// @access  Public
-const forgotPassword = async (req, res, next) => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== 'string' || !email.trim()) {
-      return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
-    }
-    res.status(200).json({
-      success: true,
-      message: 'If an account with that email exists, password reset instructions have been sent.'
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Reset password
-// @route   POST /api/auth/reset-password
-// @access  Public
-const resetPassword = async (req, res, next) => {
-  try {
-    const { token, password } = req.body;
-    if (!password || typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
-    }
-    res.status(200).json({
-      success: true,
-      message: 'Password has been reset successfully. You can now log in.'
     });
   } catch (error) {
     next(error);
@@ -219,11 +185,7 @@ const resetPassword = async (req, res, next) => {
 };
 
 module.exports = {
-  register,
-  login,
-  getMe,
-  logout,
-  refreshToken,
-  forgotPassword,
-  resetPassword
+  registerUser,
+  loginUser,
+  getMe
 };

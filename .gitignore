@@ -1,19 +1,25 @@
-# Dependencies
-node_modules/
-
-# Environment Variables
+# Environment files
 .env
 .env.*
 !.env.example
+server/.env
+client/.env
 
-# Build Outputs & Coverage
+# Dependency directories
+node_modules/
+
+# Production build
+client/dist/
 dist/
-build/
-coverage/
-*.log
 
-# IDE & OS
-.DS_Store
-Thumbs.db
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# IDE & System files
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
+
