@@ -17,15 +17,17 @@ const Navbar = () => {
   ];
 
   const authNavLinks = [
-    { name: 'Home', path: '/' },
     { name: 'Dashboard', path: '/dashboard' },
-    { name: 'Roadmap', path: '/roadmap' },
+    { name: 'Skills', path: '/skills' },
     { name: 'Skill Gap', path: '/skill-gap' },
-    { name: 'Compare Careers', path: '/career-comparison' },
+    { name: 'Assessment', path: '/assessment' },
+    { name: 'Roadmap', path: '/roadmap' },
+    { name: 'Resources', path: '/resources' },
+    { name: 'Projects', path: '/projects' },
+    { name: 'Progress', path: '/progress' },
     { name: 'Careers', path: '/careers' },
-    { name: 'My Profile', path: '/profile' },
-    { name: 'My Skills', path: '/skills' },
-    ...(user?.role === 'ADMIN' ? [{ name: 'Admin Panel', path: '/admin' }] : [])
+    { name: 'Profile', path: '/profile' },
+    ...((user?.role === 'ADMIN' || user?.role === 'admin') ? [{ name: 'Admin Panel', path: '/admin' }] : [])
   ];
 
   const navLinks = isAuthenticated ? authNavLinks : publicNavLinks;

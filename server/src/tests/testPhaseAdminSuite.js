@@ -45,24 +45,21 @@ async function runAdminSuite() {
     const userToken = userRegRes.data.token;
     console.log('✅ Standard USER registered. Role:', userRegRes.data.user.role);
 
-    // 2. Register ADMIN user with role: 'ADMIN'
-    console.log('[Setup] Registering ADMIN account...');
-    const adminRegRes = await request({
+    // 2. Login as System Admin
+    console.log('[Setup] Logging in as System Admin (admin@smartskill.com)...');
+    const adminLoginRes = await request({
       hostname: '127.0.0.1',
       port: 5000,
-      path: '/api/auth/register',
+      path: '/api/auth/login',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     }, {
-      name: 'System Admin',
-      email: `admin_${timestamp}@example.com`,
-      password: 'AdminPassword123!',
-      confirmPassword: 'AdminPassword123!',
-      role: 'ADMIN'
+      email: 'admin@smartskill.com',
+      password: 'AdminPassword123!'
     });
 
-    const adminToken = adminRegRes.data.token;
-    console.log('✅ Account registered as ADMIN role. Role:', adminRegRes.data.user.role);
+    const adminToken = adminLoginRes.data.token;
+    console.log('✅ Admin login succeeded. Token acquired.');
 
     const userHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` };
     const adminHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` };

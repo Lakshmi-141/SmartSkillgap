@@ -10,7 +10,8 @@ import {
   Layers, 
   ShieldCheck, 
   Activity, 
-  TrendingUp, 
+  HelpCircle,
+  FolderGit2,
   RefreshCw,
   AlertCircle,
   ChevronRight,
@@ -64,7 +65,7 @@ const AdminDashboard = () => {
               Admin Control Center
             </h1>
             <p className="text-sm text-[#475569] mt-1">
-              Manage platform users, career catalogs, skill definitions, and system metrics.
+              Manage platform users, career catalogs, skills, assessments, resources, and projects.
             </p>
           </div>
 
@@ -80,29 +81,29 @@ const AdminDashboard = () => {
 
         {/* Admin Section Tabs */}
         <div className="flex flex-wrap gap-2 border-b border-[#DBEAFE] pb-2">
-          <Link
-            to="/admin"
-            className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#2563EB] text-white shadow-xs"
-          >
+          <Link to="/admin" className="px-4 py-2 rounded-xl text-xs font-extrabold bg-[#2563EB] text-white shadow-xs">
             Overview
           </Link>
-          <Link
-            to="/admin/users"
-            className="px-5 py-2.5 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE] transition-all"
-          >
-            Users Management
+          <Link to="/admin/users" className="px-4 py-2 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE]">
+            Users
           </Link>
-          <Link
-            to="/admin/careers"
-            className="px-5 py-2.5 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE] transition-all"
-          >
-            Career Catalog
+          <Link to="/admin/careers" className="px-4 py-2 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE]">
+            Careers
           </Link>
-          <Link
-            to="/admin/skills"
-            className="px-5 py-2.5 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE] transition-all"
-          >
-            Skills Catalog
+          <Link to="/admin/career-skills" className="px-4 py-2 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE]">
+            Career Skills
+          </Link>
+          <Link to="/admin/skills" className="px-4 py-2 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE]">
+            Master Skills
+          </Link>
+          <Link to="/admin/assessments" className="px-4 py-2 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE]">
+            Assessments
+          </Link>
+          <Link to="/admin/resources" className="px-4 py-2 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE]">
+            Resources
+          </Link>
+          <Link to="/admin/projects" className="px-4 py-2 rounded-xl text-xs font-bold text-[#1E3A8A] bg-[#FFFFFF] hover:bg-[#EFF6FF] border border-[#DBEAFE]">
+            Projects
           </Link>
         </div>
 
@@ -117,54 +118,70 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Top 4 Metrics Cards */}
+        {/* 7 Stats Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
-          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-3">
+          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-extrabold text-[#475569] uppercase tracking-wider">Total Users</span>
-              <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center border border-[#DBEAFE]">
-                <Users className="w-5 h-5" />
-              </div>
+              <span className="text-xs font-extrabold text-[#475569] uppercase">Total Users</span>
+              <Users className="w-5 h-5 text-[#2563EB]" />
             </div>
             <div className="text-3xl font-black text-[#1E3A8A]">{stats?.totalUsers || 0}</div>
-            <div className="text-xs text-[#64748B] font-medium flex justify-between">
-              <span>Standard Users: {stats?.roleDistribution?.USER || 0}</span>
-              <span>Admins: {stats?.roleDistribution?.ADMIN || 0}</span>
-            </div>
+            <p className="text-[11px] text-[#64748B]">Students: {stats?.totalStudents || 0} • Admins: {stats?.roleDistribution?.admin || 0}</p>
           </div>
 
-          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-3">
+          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-extrabold text-[#475569] uppercase tracking-wider">Active Careers</span>
-              <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center border border-[#DBEAFE]">
-                <Briefcase className="w-5 h-5" />
-              </div>
+              <span className="text-xs font-extrabold text-[#475569] uppercase">Active Careers</span>
+              <Briefcase className="w-5 h-5 text-[#2563EB]" />
             </div>
             <div className="text-3xl font-black text-[#1E3A8A]">{stats?.totalCareers || 0}</div>
-            <p className="text-xs text-[#2563EB] font-semibold">Available for gap analysis</p>
+            <Link to="/admin/careers" className="text-xs text-[#2563EB] font-bold hover:underline">Manage Careers →</Link>
           </div>
 
-          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-3">
+          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-extrabold text-[#475569] uppercase tracking-wider">Master Skills</span>
-              <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center border border-[#DBEAFE]">
-                <Layers className="w-5 h-5" />
-              </div>
+              <span className="text-xs font-extrabold text-[#475569] uppercase">Master Skills</span>
+              <Layers className="w-5 h-5 text-[#2563EB]" />
             </div>
             <div className="text-3xl font-black text-[#1E3A8A]">{stats?.totalSkills || 0}</div>
-            <p className="text-xs text-[#64748B] font-medium">Catalog skills database</p>
+            <Link to="/admin/skills" className="text-xs text-[#2563EB] font-bold hover:underline">Manage Skills →</Link>
           </div>
 
-          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-3">
+          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-extrabold text-[#475569] uppercase tracking-wider">Analyses Run</span>
-              <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center border border-[#DBEAFE]">
-                <Activity className="w-5 h-5" />
-              </div>
+              <span className="text-xs font-extrabold text-[#475569] uppercase">Assessments</span>
+              <HelpCircle className="w-5 h-5 text-[#2563EB]" />
+            </div>
+            <div className="text-3xl font-black text-[#1E3A8A]">{stats?.totalAssessments || 0}</div>
+            <Link to="/admin/assessments" className="text-xs text-[#2563EB] font-bold hover:underline">Manage Assessments →</Link>
+          </div>
+
+          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-extrabold text-[#475569] uppercase">Resources</span>
+              <BookOpen className="w-5 h-5 text-[#2563EB]" />
+            </div>
+            <div className="text-3xl font-black text-[#1E3A8A]">{stats?.totalResources || 0}</div>
+            <Link to="/admin/resources" className="text-xs text-[#2563EB] font-bold hover:underline">Manage Resources →</Link>
+          </div>
+
+          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-extrabold text-[#475569] uppercase">Projects</span>
+              <FolderGit2 className="w-5 h-5 text-[#2563EB]" />
+            </div>
+            <div className="text-3xl font-black text-[#1E3A8A]">{stats?.totalProjects || 0}</div>
+            <Link to="/admin/projects" className="text-xs text-[#2563EB] font-bold hover:underline">Manage Projects →</Link>
+          </div>
+
+          <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DBEAFE] shadow-sm space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-extrabold text-[#475569] uppercase">Analyses Run</span>
+              <Activity className="w-5 h-5 text-[#2563EB]" />
             </div>
             <div className="text-3xl font-black text-[#1E3A8A]">{stats?.totalSkillGapAnalyses || 0}</div>
-            <p className="text-xs text-[#64748B] font-medium">Saved roadmaps: {stats?.totalRoadmaps || 0}</p>
+            <p className="text-xs text-[#64748B]">Total Roadmaps: {stats?.totalRoadmaps || 0}</p>
           </div>
 
         </div>
@@ -177,12 +194,9 @@ const AdminDashboard = () => {
                 <Users className="w-5 h-5 text-[#2563EB]" />
                 <span>Recently Registered Users</span>
               </h2>
-              <p className="text-xs text-[#64748B]">Latest accounts created across the platform</p>
+              <p className="text-xs text-[#64748B]">Latest account signups</p>
             </div>
-            <Link
-              to="/admin/users"
-              className="text-xs font-bold text-[#2563EB] hover:underline flex items-center gap-1"
-            >
+            <Link to="/admin/users" className="text-xs font-bold text-[#2563EB] hover:underline flex items-center gap-1">
               <span>View All Users</span>
               <ChevronRight className="w-4 h-4" />
             </Link>
@@ -213,11 +227,10 @@ const AdminDashboard = () => {
                       </td>
                       <td className="p-3.5">
                         <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border ${
-                          u.role === 'ADMIN'
+                          u.role === 'admin' || u.role === 'ADMIN'
                             ? 'bg-[#1E3A8A] text-white border-[#1E3A8A]'
                             : 'bg-[#EFF6FF] text-[#2563EB] border-[#DBEAFE]'
                         }`}>
-
                           {u.role}
                         </span>
                       </td>

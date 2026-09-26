@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.MODE === 'production'
+    ? 'https://smartskillgap.onrender.com/api'
+    : 'http://localhost:5000/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -13,8 +16,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (token && token !== 'undefined' && token !== 'null' && token.trim() !== '') {
+      config.headers.Authorization = `Bearer ${token.trim()}`;
     }
     return config;
   },
@@ -138,6 +141,104 @@ export const getRoadmapApi = async (userId = 'me') => {
 
 export const updateRoadmapProgressApi = async (roadmapId, phaseNumber, status) => {
   const response = await api.put(`/roadmaps/${roadmapId}/progress`, { phaseNumber, status });
+  return response.data;
+};
+
+// Assessment API Calls
+export const getAssessmentsApi = async () => {
+  const response = await api.get('/assessments');
+  return response.data;
+};
+
+export const getAssessmentByIdApi = async (id) => {
+  const response = await api.get(`/assessments/${id}`);
+  return response.data;
+};
+
+export const submitAssessmentApi = async (id, answers) => {
+  const response = await api.post(`/assessments/${id}/submit`, { answers });
+  return response.data;
+};
+
+export const getMyAssessmentResultsApi = async () => {
+  const response = await api.get('/assessments/results/me');
+  return response.data;
+};
+
+export const createAssessmentApi = async (data) => {
+  const response = await api.post('/assessments', data);
+  return response.data;
+};
+
+export const updateAssessmentApi = async (id, data) => {
+  const response = await api.put(`/assessments/${id}`, data);
+  return response.data;
+};
+
+export const deleteAssessmentApi = async (id) => {
+  const response = await api.delete(`/assessments/${id}`);
+  return response.data;
+};
+
+// Resources API Calls
+export const getResourcesApi = async (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  const url = query ? `/resources?${query}` : '/resources';
+  const response = await api.get(url);
+  return response.data;
+};
+
+export const createResourceApi = async (data) => {
+  const response = await api.post('/resources', data);
+  return response.data;
+};
+
+export const updateResourceApi = async (id, data) => {
+  const response = await api.put(`/resources/${id}`, data);
+  return response.data;
+};
+
+export const deleteResourceApi = async (id) => {
+  const response = await api.delete(`/resources/${id}`);
+  return response.data;
+};
+
+// Projects API Calls
+export const getProjectsApi = async (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  const url = query ? `/projects?${query}` : '/projects';
+  const response = await api.get(url);
+  return response.data;
+};
+
+export const getProjectRecommendationsApi = async () => {
+  const response = await api.get('/projects/recommendations');
+  return response.data;
+};
+
+export const updateProjectProgressApi = async (id, progressData) => {
+  const response = await api.post(`/projects/${id}/progress`, progressData);
+  return response.data;
+};
+
+export const createProjectApi = async (data) => {
+  const response = await api.post('/projects', data);
+  return response.data;
+};
+
+export const updateProjectApi = async (id, data) => {
+  const response = await api.put(`/projects/${id}`, data);
+  return response.data;
+};
+
+export const deleteProjectApi = async (id) => {
+  const response = await api.delete(`/projects/${id}`);
+  return response.data;
+};
+
+// Career Readiness & Progress API Calls
+export const getCareerReadinessApi = async () => {
+  const response = await api.get('/progress/readiness');
   return response.data;
 };
 

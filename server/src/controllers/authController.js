@@ -56,17 +56,14 @@ const registerUser = async (req, res, next) => {
       });
     }
 
-    // 6. Create user
-    const userRole = (req.body.role && typeof req.body.role === 'string' && ['USER', 'ADMIN'].includes(req.body.role.toUpperCase())) 
-      ? req.body.role.toUpperCase() 
-      : 'USER';
-
+    // 6. Create user (Public registration ALWAYS creates role = student)
     const user = await User.create({
       name: trimmedName,
       email: trimmedEmail,
       password,
-      role: userRole,
-      targetRole: typeof targetRole === 'string' ? targetRole : 'Full Stack Web Developer'
+      role: 'student',
+      targetCareer: typeof targetRole === 'string' && targetRole.trim() ? targetRole.trim() : 'Full Stack Web Developer',
+      targetRole: typeof targetRole === 'string' && targetRole.trim() ? targetRole.trim() : 'Full Stack Web Developer'
     });
 
 

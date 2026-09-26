@@ -3,6 +3,9 @@ const Career = require('../models/Career');
 const Skill = require('../models/Skill');
 const SkillGap = require('../models/SkillGap');
 const Roadmap = require('../models/Roadmap');
+const Assessment = require('../models/Assessment');
+const Resource = require('../models/Resource');
+const Project = require('../models/Project');
 
 // @desc    Get all registered users (Admin only)
 // @route   GET /api/admin/users
@@ -29,21 +32,27 @@ const getPlatformStatistics = async (req, res, next) => {
   try {
     const [
       totalUsers,
+      totalStudents,
       totalCareers,
       totalSkills,
+      totalAssessments,
+      totalResources,
+      totalProjects,
       totalSkillGapAnalyses,
       totalRoadmaps,
       adminCount,
-      userCount,
       recentUsers
     ] = await Promise.all([
       User.countDocuments(),
+      User.countDocuments({ role: { $in: ['student', 'USER'] } }),
       Career.countDocuments(),
       Skill.countDocuments(),
+      Assessment.countDocuments(),
+      Resource.countDocuments(),
+      Project.countDocuments(),
       SkillGap.countDocuments(),
       Roadmap.countDocuments(),
-      User.countDocuments({ role: 'ADMIN' }),
-      User.countDocuments({ role: 'USER' }),
+      User.countDocuments({ role: { $in: ['admin', 'ADMIN'] } }),
       User.find().sort({ createdAt: -1 }).limit(5).select('-password')
     ]);
 
@@ -51,13 +60,17 @@ const getPlatformStatistics = async (req, res, next) => {
       success: true,
       statistics: {
         totalUsers,
+        totalStudents,
         totalCareers,
         totalSkills,
+        totalAssessments,
+        totalResources,
+        totalProjects,
         totalSkillGapAnalyses,
         totalRoadmaps,
         roleDistribution: {
-          ADMIN: adminCount,
-          USER: userCount
+          admin: adminCount,
+          student: totalStudents
         },
         recentUsers
       }

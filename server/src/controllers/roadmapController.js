@@ -264,7 +264,8 @@ const generateRoadmap = async (req, res, next) => {
 // @access  Private
 const getRoadmapByUserId = async (req, res, next) => {
   try {
-    const targetUserId = req.params.userId === 'me' ? req.user._id : req.params.userId;
+    const isSelfOrAdmin = req.params.userId === 'me' || req.params.userId === String(req.user._id) || (req.user.role === 'admin' || req.user.role === 'ADMIN');
+    const targetUserId = isSelfOrAdmin ? (req.params.userId === 'me' ? req.user._id : req.params.userId) : req.user._id;
 
     let roadmap = await Roadmap.findOne({ user: targetUserId });
     
