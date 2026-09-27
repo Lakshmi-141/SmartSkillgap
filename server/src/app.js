@@ -29,6 +29,7 @@ app.use(helmet({
 
 // Allowed Origins for Production (Vercel) & Local Development
 const allowedOrigins = [
+  'https://smart-skillgap-3uqb-q5czfd118-thota3.vercel.app',
   'https://smart-skillgap-3uqb-1ng5yx2q7-thota3.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
