@@ -36,10 +36,10 @@ const Dashboard = () => {
       setLoading(true);
       setError('');
       const res = await getDashboardSummaryApi();
-      if (res.data?.success) {
-        setData(res.data);
+      if (res.success && res.summary) {
+        setData(res.summary);
       } else {
-        setError(res.data?.message || 'Failed to fetch dashboard data');
+        setError(res.message || 'Failed to fetch dashboard data');
       }
     } catch (err) {
       console.error('Error loading dashboard summary:', err);

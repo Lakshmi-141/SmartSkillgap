@@ -10,12 +10,28 @@ const performSkillGapAnalysis = async (userId, targetCareerTitle) => {
 
   const careerTitle = targetCareerTitle || user.targetCareer || user.targetRole || 'Full Stack Developer';
   
-  // Find career in DB or fallback to seed data
+  // Find career in DB or fallback to seed data safely
   let career = await Career.findOne({ title: new RegExp(`^${careerTitle.trim()}$`, 'i') });
+  
   if (!career) {
-    // If database empty or title mismatch, pick default seed career
+    // Search all careers and find best matching title containment
+    const allCareers = await Career.find();
+    const lowerTarget = careerTitle.toLowerCase();
+    career = allCareers.find(c => 
+      lowerTarget.includes(c.title.toLowerCase()) || 
+      c.title.toLowerCase().includes(lowerTarget) ||
+      lowerTarget.split(/\s+/).some(w => w.length > 3 && c.title.toLowerCase().includes(w))
+    );
+  }
+
+  if (!career) {
     const seedMatch = seedCareersData.find(c => c.title.toLowerCase() === careerTitle.toLowerCase()) || seedCareersData[0];
-    career = await Career.create(seedMatch);
+    const existing = await Career.findOne({ title: seedMatch.title });
+    if (existing) {
+      career = existing;
+    } else {
+      career = await Career.create(seedMatch);
+    }
   }
 
   const userSkills = user.skills || [];
