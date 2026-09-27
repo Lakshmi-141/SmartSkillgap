@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+// SMARTSKILL App Component - GitHub -> Vercel automatic deployment verified
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
