@@ -11,9 +11,10 @@ const Navbar = () => {
 
   const publicNavLinks = [
     { name: 'Home', path: '/' },
-    { name: 'How It Works', path: '/#how-it-works' },
+    { name: 'Workflow', path: '/#workflow' },
+    { name: 'Showcase', path: '/#project-showcase' },
     { name: 'Features', path: '/#features' },
-    { name: 'Gap Preview', path: '/#preview' },
+    { name: 'Live Demo', path: '/#preview' },
   ];
 
   const authNavLinks = [
