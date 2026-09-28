@@ -5,6 +5,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
     ? 'https://smartskillgap.onrender.com/api'
     : 'http://localhost:5000/api');
 
+const PROD_API_URL = 'https://smartskillgap.onrender.com/api';
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -24,10 +26,16 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Purge expired/invalid tokens on 401 Unauthorized
+// Response Interceptor: Auto-fallback to production API if local server is unreachable, and handle 401
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    if (!error.response && error.config && !error.config._retry) {
+      error.config._retry = true;
+      console.warn('[API Engine] Backend endpoint unreachable. Retrying with production Render API:', PROD_API_URL);
+      error.config.baseURL = PROD_API_URL;
+      return axios(error.config);
+    }
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
     }
